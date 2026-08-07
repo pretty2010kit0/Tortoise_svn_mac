@@ -12,3 +12,15 @@ target/
 # 编辑器
 .idea/
 .vscode/
+
+# Reasonix 工具内部状态（非项目代码）
+.reasonix/
+
+# tauri 自动生成（构建时重新生成）
+src-tauri/gen/
+
+# 通用
+*.log
+.vite/
+.env
+.env.*
