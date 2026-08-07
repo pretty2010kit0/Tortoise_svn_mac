@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: 安装 svn（集成测试依赖）
+        run: brew install subversion
+
+      - name: 前端依赖
+        run: npm ci
+
+      - name: 前端类型检查
+        run: npm run typecheck
+
+      - name: 后端测试（单元 + 集成，真实 svn 仓库闭环）
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: 前端构建
+        run: npm run build

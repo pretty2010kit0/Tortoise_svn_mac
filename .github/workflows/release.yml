@@ -1,0 +1,62 @@
+name: Release
+
+# 推送 v* 标签（如 v1.0.0）时自动构建 DMG 并创建 GitHub Release（草稿）
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: 安装 svn（集成测试依赖）
+        run: brew install subversion
+
+      - name: 前端依赖
+        run: npm ci
+
+      - name: 前端类型检查
+        run: npm run typecheck
+
+      - name: 后端测试（单元 + 集成）
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: 前端构建
+        run: npm run build
+
+      # tauri-action：执行 tauri build（app + dmg），上传产物并创建 Release
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "SvnDesktop ${{ github.ref_name }}"
+          releaseBody: |
+            ## SvnDesktop ${{ github.ref_name }}
+
+            macOS SVN 图形化管理工具（类 TortoiseSVN）。
+
+            ### 安装说明
+            1. 下载并解压 `SvnDesktop.app`（或安装 `.dmg`）
+            2. 首次打开若提示"无法验证开发者"：右键 App → 打开
+            3. 需要本机已安装 Subversion 1.14+（`brew install subversion`）
+          releaseDraft: true
+          prerelease: false
