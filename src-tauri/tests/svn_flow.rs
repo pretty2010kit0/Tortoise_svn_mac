@@ -466,10 +466,14 @@ fn local_move_and_log_flow() {
         .expect("search miss");
     assert!(miss.is_empty(), "无关关键词应无命中");
 
-    // 5. 日志过滤：--search 匹配作者（当前用户名应命中）
-    let by_author = remote_log(url.clone(), Some(10), None, Some("testuser".into()), None, None)
+    // 5. 日志过滤：--search 匹配作者（先取一条日志拿真实作者，再搜该作者应命中）
+    let first = remote_log(url.clone(), Some(1), None, None, None, None)
+        .expect("first log");
+    let real_author = first.first().map(|l| l.author.clone()).unwrap_or_default();
+    assert!(!real_author.is_empty(), "日志应有作者");
+    let by_author = remote_log(url.clone(), Some(10), None, Some(real_author.clone()), None, None)
         .expect("author search");
-    assert!(!by_author.is_empty(), "search=zhou（作者）应命中");
+    assert!(!by_author.is_empty(), "按真实作者搜索应命中");
 
     // 6. 日期过滤（今天应命中；用系统日期而非硬编码，避免跨天失效）
     let today = String::from_utf8(
@@ -499,7 +503,7 @@ fn browse_aux_flow() {
     let f = wc.join("note.txt");
     let bl = wc_blame(f.display().to_string(), None).expect("blame");
     assert!(bl.len() >= 2, "至少 2 行: {:#?}", bl);
-    assert!(bl.iter().all(|l| l.revision == 1 && l.author == "testuser"));
+    assert!(bl.iter().all(|l| l.revision == 1 && !l.author.is_empty()), "作者不应为空");
 
     // 2. 本地修改 → status -u 显示 modified + against=HEAD
     std::fs::write(&f, "README\nchanged line\n").unwrap();
