@@ -6,8 +6,8 @@ macOS 上的 SVN 图形化管理工具（类 TortoiseSVN）。基于 **Tauri 2 +
 
 ## 📸 界面预览
 
-<img src="docs/screenshots/远程仓库截图.png" width="720" alt="远程仓库浏览">
-<img src="docs/screenshots/工作副本截图.png" width="720" alt="工作副本管理">
+<img src="docs/screenshots/remote-browse.png" width="720" alt="远程仓库浏览">
+<img src="docs/screenshots/wc-status.png" width="720" alt="工作副本管理">
 
 ## ✨ 功能特性
 
