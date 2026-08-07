@@ -1,0 +1,14 @@
+# 依赖与构建产物
+node_modules/
+dist/
+target/
+
+# 运行/开发痕迹
+.run/
+
+# macOS
+.DS_Store
+
+# 编辑器
+.idea/
+.vscode/
