@@ -825,14 +825,14 @@ mod tests {
 <relative-url>^/trunk</relative-url>
 <repository><root>https://example.com/svn</root><uuid>aaaa-bbbb</uuid></repository>
 <wc-info><wcroot-abspath>/Users/u/wc</wcroot-abspath><schedule>normal</schedule><depth>infinity</depth></wc-info>
-<commit revision="9"><author>zhou</author><date>2026-01-02T03:04:05.000000Z</date></commit>
+<commit revision="9"><author>testuser</author><date>2026-01-02T03:04:05.000000Z</date></commit>
 </entry>
 </info>"#;
 
     const LIST_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <lists>
 <list path="/trunk">
-<entry kind="dir"><name>src</name><commit revision="8"><author>zhou</author><date>2026-01-01T00:00:00.000000Z</date></commit></entry>
+<entry kind="dir"><name>src</name><commit revision="8"><author>testuser</author><date>2026-01-01T00:00:00.000000Z</date></commit></entry>
 <entry kind="file"><name>a.txt</name><size>123</size><commit revision="9"><author>li</author><date>2026-01-02T00:00:00.000000Z</date></commit></entry>
 </list>
 </lists>"#;
@@ -840,7 +840,7 @@ mod tests {
     const LOG_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <log>
 <logentry revision="9">
-<author>zhou</author><date>2026-01-02T00:00:00.000000Z</date>
+<author>testuser</author><date>2026-01-02T00:00:00.000000Z</date>
 <msg>修复问题</msg>
 <paths>
 <path kind="file" action="M">/trunk/a.txt</path>
