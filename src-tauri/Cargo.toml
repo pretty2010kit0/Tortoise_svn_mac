@@ -21,6 +21,7 @@ libc = "0.2"
 quick-xml = "0.37"
 base64 = "0.22"
 similar = "2"
+notify = "8.2.0"
 
 [profile.release]
 codegen-units = 1

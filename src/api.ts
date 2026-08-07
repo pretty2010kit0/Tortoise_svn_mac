@@ -165,6 +165,10 @@ export const api = {
   getExternalDiff: () => invoke<string>("get_external_diff"),
   setExternalDiff: (cmd: string) => invoke<void>("set_external_diff", { cmd }),
 
+  // ── 文件监听增量刷新（批次 16）──
+  wcWatchStart: (path: string) => invoke<number>("wc_watch_start", { path }),
+  wcWatchStop: (id: number) => invoke<void>("wc_watch_stop", { id }),
+
   // ── TaskManager（批次 8）：后台长任务 ──
   taskList: () => invoke<TaskInfo[]>("task_list"),
   taskCancel: (id: number) => invoke<boolean>("task_cancel", { id }),

@@ -15,6 +15,8 @@ pub fn run() {
             svn::favorites::fav_remove,
             svn::settings::get_external_diff,
             svn::settings::set_external_diff,
+            svn::fs_watch::wc_watch_start,
+            svn::fs_watch::wc_watch_stop,
             svn::favorites::fav_clear,
             svn::commands::svn_auth_list,
             svn::commands::svn_auth_remove,

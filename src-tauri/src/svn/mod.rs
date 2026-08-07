@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod favorites;
+pub mod fs_watch;
 pub mod history;
 pub mod models;
 pub mod parser;

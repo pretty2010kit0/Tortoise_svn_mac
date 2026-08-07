@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "../api";
 import {
   normalizeError,
@@ -61,6 +62,25 @@ const patchText = ref("");
 
 onUnmounted(() => {
   if (autoTimer !== undefined) window.clearInterval(autoTimer);
+  if (fsTimer !== null) window.clearTimeout(fsTimer);
+  unlistenFs?.();
+  if (watchId.value !== null) void api.wcWatchStop(watchId.value);
+});
+
+// 文件监听增量刷新（批次 16）：notify 监听 wc 目录，变化防抖后自动刷新
+let unlistenFs: (() => void) | null = null;
+let fsTimer: ReturnType<typeof setTimeout> | null = null;
+const watchId = ref<number | null>(null);
+onMounted(async () => {
+  try {
+    unlistenFs = await listen("wc-fs-event", () => {
+      if (!info.value || busy.value) return;
+      if (fsTimer !== null) window.clearTimeout(fsTimer);
+      fsTimer = window.setTimeout(() => void refresh(), 800);
+    });
+  } catch {
+    // 事件监听失败不阻塞
+  }
 });
 
 function open(): void {
@@ -92,6 +112,16 @@ async function load(p: string): Promise<void> {
     checked.value = [];
     selected.value = null;
     diff.value = null;
+    // 启动文件监听（自动增量刷新；失败不阻塞）
+    if (watchId.value !== null) {
+      void api.wcWatchStop(watchId.value);
+      watchId.value = null;
+    }
+    try {
+      watchId.value = await api.wcWatchStart(path.value);
+    } catch {
+      watchId.value = null;
+    }
   } catch (e) {
     info.value = null;
     err.value = normalizeError(e);
@@ -168,6 +198,26 @@ async function commit(): Promise<void> {
   busy.value = true;
   err.value = null;
   try {
+    // 提交确认：列出将提交的文件与状态
+    const st = info.value?.status ?? [];
+    const labels = checked.value
+      .map((p) => {
+        const s = st.find((x) => x.path === p);
+        const tag = s ? STATUS_LABEL[s.item] ?? s.item : "?";
+        const label = s ? relPath(s) : p.split("/").pop() ?? p;
+        return `  [${tag}] ${label}`;
+      })
+      .join("\n");
+    const unver = checked.value.filter((p) =>
+      st.some((s) => s.path === p && s.item === "unversioned"),
+    ).length;
+    if (
+      !window.confirm(
+        `将提交 ${checked.value.length} 个路径：\n${labels}\n${unver > 0 ? `\n⚠ 含 ${unver} 个未版本化新增（将自动 add 后提交）` : ""}\n\n提交说明：${commitMsg.value.trim()}`,
+      )
+    ) {
+      return;
+    }
     result.value = await api.wcCommit(checked.value, commitMsg.value);
     commitMsg.value = "";
     await refresh();
