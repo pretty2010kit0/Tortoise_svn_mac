@@ -4,6 +4,11 @@ macOS 上的 SVN 图形化管理工具（类 TortoiseSVN）。基于 **Tauri 2 +
 
 > 需要本机安装 Subversion 1.14+（如 `brew install subversion`，二进制默认从 `/opt/homebrew/bin/svn` 或 PATH 发现，可在应用「设置」中手动指定）。
 
+## 📸 界面预览
+
+<img src="docs/screenshots/远程仓库截图.png" width="720" alt="远程仓库浏览">
+<img src="docs/screenshots/工作副本截图.png" width="720" alt="工作副本管理">
+
 ## ✨ 功能特性
 
 ### 远程仓库
