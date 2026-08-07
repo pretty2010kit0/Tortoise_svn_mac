@@ -622,7 +622,7 @@ fn task_flow() {
 
     // 1. 完成路径：后台 checkout
     let wc = base.join("wc");
-    let id = task_checkout(trunk.clone(), wc.display().to_string()).expect("task_checkout");
+    let id = task_checkout(trunk.clone(), wc.display().to_string(), None, None).expect("task_checkout");
     let done = wait_task(id, 30);
     assert_eq!(done.state, TaskState::Done);
     assert!(wc.join(".svn").exists(), "checkout 后台任务应产出工作副本");
@@ -636,6 +636,8 @@ fn task_flow() {
     let id2 = task_checkout(
         format!("{trunk}/no-such-dir"),
         bad_wc.display().to_string(),
+        None,
+        None,
     )
     .expect("task_checkout");
     let failed = wait_task(id2, 30);

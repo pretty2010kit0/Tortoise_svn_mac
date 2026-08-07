@@ -223,6 +223,12 @@ export interface RepoLayout {
   tags: string[];
 }
 
+/** 合并信息（merged = 已合入，eligible = 可合入未合入） */
+export interface MergeInfo {
+  merged: number[];
+  eligible: number[];
+}
+
 /** 状态条目中文标签 */
 export const STATUS_LABEL: Record<string, string> = {
   none: "正常",

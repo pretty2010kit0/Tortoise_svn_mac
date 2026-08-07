@@ -365,6 +365,14 @@ pub struct RepoLayout {
     pub tags: Vec<String>,
 }
 
+/// 合并信息（merged = 已合入，eligible = 可合入未合入）
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeInfo {
+    pub merged: Vec<i64>,
+    pub eligible: Vec<i64>,
+}
+
 /// 写操作结果
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

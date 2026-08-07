@@ -9,6 +9,7 @@ import {
   type DiffChunk,
   type FilePair,
   type HistoryEntry,
+  type MergeInfo,
   type PropEntry,
   type StatusEntry,
   type TaskResult,
@@ -467,6 +468,29 @@ async function relocateWc(): Promise<void> {
   await refresh();
 }
 
+/** 合并信息查看：源 URL → merged/eligible 列表（批次 17） */
+const mergeInfo = ref<MergeInfo | null>(null);
+const mergeInfoSrc = ref("");
+async function showMergeInfo(): Promise<void> {
+  if (!info.value) return;
+  const src = await uiPrompt(
+    "合并信息源",
+    "",
+    `查看该分支相对当前工作副本的合并状态：\n已合入（merged） / 可合入未合入（eligible）\n\n源 URL（分支/标签）：`,
+  );
+  if (!src?.trim()) return;
+  busy.value = true;
+  err.value = null;
+  try {
+    mergeInfoSrc.value = src.trim();
+    mergeInfo.value = await api.wcMergeinfo(info.value.wcRoot, src.trim());
+  } catch (e) {
+    err.value = normalizeError(e);
+  } finally {
+    busy.value = false;
+  }
+}
+
 /** 分支间合并 */
 async function mergeBranch(): Promise<void> {
   if (!info.value) return;
@@ -780,6 +804,9 @@ function fmtDate(d: string): string {
             <button :disabled="busy" @click="mergeBranch">
               合并
             </button>
+            <button :disabled="busy" @click="showMergeInfo">
+              合并信息
+            </button>
             <button :disabled="busy" @click="createPatch">
               创建补丁
             </button>
@@ -956,6 +983,31 @@ function fmtDate(d: string): string {
         "
       />
 
+      <!-- 合并信息弹层（批次 17） -->
+      <div v-if="mergeInfo" class="mergeinfopanel">
+        <div class="mi-head">
+          <b>合并信息：{{ mergeInfoSrc }}</b>
+          <button class="small" @click="mergeInfo = null">关闭</button>
+        </div>
+        <div class="mi-cols">
+          <div class="mi-col">
+            <div class="mi-title ok">✓ 已合入（{{ mergeInfo.merged.length }}）</div>
+            <div v-if="mergeInfo.merged.length" class="mi-list">
+              <span v-for="r in mergeInfo.merged" :key="r" class="mi-rev ok">r{{ r }}</span>
+            </div>
+            <div v-else class="mi-empty">暂无</div>
+          </div>
+          <div class="mi-col">
+            <div class="mi-title warn">⚠ 可合入未合入（{{ mergeInfo.eligible.length }}）</div>
+            <div v-if="mergeInfo.eligible.length" class="mi-list">
+              <span v-for="r in mergeInfo.eligible" :key="r" class="mi-rev warn">r{{ r }}</span>
+            </div>
+            <div v-else class="mi-empty">全部已合入 ✓</div>
+          </div>
+        </div>
+        <p class="mi-hint">提示：可合入的 revision 可通过「合并」（版本范围留空自动按 mergeinfo 同步）拉取。</p>
+      </div>
+
       <!-- 补丁弹层 -->
       <div v-if="patchPanel" class="patchpanel">
         <div class="patchpanel-head">
@@ -1069,6 +1121,79 @@ function fmtDate(d: string): string {
 .propempty {
   color: #57606a;
   font-size: 13px;
+}
+.mergeinfopanel {
+  position: fixed;
+  inset: 48px 20% 48px 20%;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  z-index: 35;
+  padding: 12px;
+  gap: 10px;
+}
+.mi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.mi-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.mi-col {
+  border: 1px solid #e5e8eb;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mi-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.mi-title.ok {
+  color: #1a7f37;
+}
+.mi-title.warn {
+  color: #9a6700;
+}
+.mi-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mi-rev {
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, monospace;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.mi-rev.ok {
+  background: #dafbe1;
+  color: #1a7f37;
+}
+.mi-rev.warn {
+  background: #fff8c5;
+  color: #9a6700;
+}
+.mi-empty {
+  color: #8b949e;
+  font-size: 12px;
+}
+.mi-hint {
+  font-size: 12px;
+  color: #8b949e;
+  margin: 0;
 }
 .blamepanel {
   position: fixed;

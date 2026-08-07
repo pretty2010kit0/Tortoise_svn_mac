@@ -45,7 +45,7 @@ pub struct TaskInfo {
 #[derive(Clone)]
 pub enum RetrySpec {
     Import { local: String, url: String, message: String },
-    Checkout { url: String, dest: String },
+    Checkout { url: String, dest: String, depth: Option<String>, rev: Option<String> },
     Update { path: String },
     Export { url: String, dest: String, rev: Option<i64> },
 }

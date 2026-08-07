@@ -5,6 +5,7 @@ import { api } from "../api";
 import { usePrompt } from "../prompt";
 import VirtualList from "./VirtualList.vue";
 import PromptDialog from "./PromptDialog.vue";
+import CheckoutDialog from "./CheckoutDialog.vue";
 import {
   normalizeError,
   type DiffChunk,
@@ -192,7 +193,13 @@ async function open(u: string): Promise<void> {
   err.value = null;
   notice.value = "";
   try {
-    info.value = await api.remoteOpen(u);
+    // 命中永久信任站点的 URL 直接带信任参数连接
+    const trusted = await api.certTrustList();
+    if (trusted.some((site) => u.startsWith(site))) {
+      info.value = await api.remoteOpenTrust(u);
+    } else {
+      info.value = await api.remoteOpen(u);
+    }
     void api.historyAdd("remote", u); // 打开成功才记录
     url.value = info.value.rootUrl ? u : u;
     crumbs.value = [];
@@ -208,18 +215,38 @@ async function open(u: string): Promise<void> {
         return;
       }
     } else if (ce.category === "certificate") {
-      // 证书不受信任：询问临时接受（本次会话）
-      const ok = window.confirm(
-        `服务器证书不受信任：\n${ce.summary}\n${ce.detail}\n\n是否临时接受该证书并连接？（仅本次，不写入信任缓存）`,
+      // 证书不受信任：临时接受 / 永久信任
+      const act = window.confirm(
+        `服务器证书不受信任：\n${ce.summary}\n${ce.detail}\n\n「确定」= 临时接受（仅本次）\n「取消」后可在设置中永久信任该站点`,
       );
-      if (ok) {
+      if (act) {
         await trustOpen(u);
         return;
+      }
+      const trust = window.confirm("是否永久信任该站点（写入信任列表，以后自动接受证书）？");
+      if (trust) {
+        try {
+          await api.certTrustAdd(u);
+          await trustOpen(u);
+          return;
+        } catch (e3) {
+          err.value = normalizeError(e3);
+        }
       }
     }
     err.value = ce;
   } finally {
     loading.value = false;
+  }
+}
+
+/** 复制 revision（批次 17） */
+async function copyRevision(rev: number): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(`r${rev}`);
+    notice.value = `已复制 r${rev}`;
+  } catch {
+    notice.value = "复制失败（剪贴板不可用）";
   }
 }
 
@@ -445,15 +472,22 @@ async function exportEntry(e: ListEntry): Promise<void> {
 }
 
 /** 检出列表条目（文件或目录）到本地：svn checkout URL 目标/名称 → 通知 App 切到工作副本页 */
+// 检出对话框（批次 17）：非 null 时展示
+const checkoutUrl = ref<string | null>(null);
+
 async function checkoutEntry(e: ListEntry): Promise<void> {
-  const dir = await dialogOpen({ directory: true, title: "选择检出目标文件夹" });
-  if (!dir) return;
+  checkoutUrl.value = entryUrl(e.name);
+}
+
+/** 检出对话框确认：dest/depth/rev */
+async function doCheckout(dest: string, depth: string, rev: string | null): Promise<void> {
+  checkoutUrl.value = null;
+  if (!dest) return;
   exporting.value = true;
   err.value = null;
   notice.value = "";
   try {
-    const dest = `${dir.replace(/\/$/, "")}/${e.name}`;
-    const id = await api.taskCheckout(entryUrl(e.name), dest);
+    const id = await api.taskCheckout(checkoutUrl.value ?? "", dest, depth, rev);
     notice.value = `检出已加入后台任务 #${id}，完成后可在工作副本页打开（${dest}）`;
   } catch (e2) {
     err.value = normalizeError(e2);
@@ -938,7 +972,13 @@ const diffTitle = computed(() => {
                   :class="{ on: selectedLog?.revision === l.revision }"
                   @click="pickLog(l, li)"
                 >
-                  <b>r{{ l.revision }}</b>
+                  <b
+                    class="rev"
+                    :title="li === 0 ? 'HEAD（最新）· 点击复制 revision' : '点击复制 revision'"
+                    @click.stop="copyRevision(l.revision)"
+                  >
+                    r{{ l.revision }}<span v-if="li === 0" class="headtag">HEAD</span>
+                  </b>
                   <span class="auth">{{ l.author }}</span>
                   <span class="date">{{ fmtDate(l.date) }}</span>
                   <span class="msg">{{ l.msg || "(空提交说明)" }}</span>
@@ -989,6 +1029,14 @@ const diffTitle = computed(() => {
       :placeholder="promptState.placeholder"
       @ok="onPromptOk"
       @cancel="onPromptCancel"
+    />
+
+    <!-- 检出对话框（批次 17） -->
+    <CheckoutDialog
+      v-if="checkoutUrl"
+      :url="checkoutUrl"
+      @ok="doCheckout"
+      @cancel="checkoutUrl = null"
     />
   </section>
 </template>
@@ -1357,6 +1405,23 @@ const diffTitle = computed(() => {
 }
 .vlogrow .cnt {
   color: #8b949e;
+}
+.vlogrow .rev {
+  cursor: pointer;
+  color: #0969da;
+  min-width: 44px;
+}
+.vlogrow .rev:hover {
+  text-decoration: underline;
+}
+.vlogrow .headtag {
+  font-size: 10px;
+  color: #1a7f37;
+  background: #dafbe1;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 4px;
+  font-weight: 600;
 }
 .empty {
   flex: 1;

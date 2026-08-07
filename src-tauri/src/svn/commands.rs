@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use crate::svn::models::{
     AuthCred, BlameLine, ConflictInfo, DiffChunk, DiffResult, DirStats, FileContent, FilePair,
-    ListEntry, LogEntry, PropEntry, RepoInfo, RepoLayout, StatusEntry, StatusU, SvnError,
+    ListEntry, LogEntry, MergeInfo, PropEntry, RepoInfo, RepoLayout, StatusEntry, StatusU, SvnError,
     TaskResult, WcInfo,
 };
 use crate::svn::parser::{
@@ -1160,10 +1160,37 @@ pub fn wc_relocate(path: String, new_url: String, from_url: Option<String>) -> R
     })
 }
 
+/// 合并信息查看（批次 17）：SOURCE 相对 TARGET 的已合入/可合入 revision
+#[tauri::command]
+pub fn wc_mergeinfo(wc_path: String, source_url: String) -> Result<MergeInfo, SvnError> {
+    let run = |show: &str| -> Vec<i64> {
+        match run_svn_any(
+            &[
+                "mergeinfo".into(),
+                "--show-revs".into(),
+                show.into(),
+                source_url.clone(),
+                wc_path.clone(),
+            ],
+            None,
+        ) {
+            Ok(out) if out.success() => out
+                .stdout
+                .lines()
+                .filter_map(|l| l.trim().trim_start_matches('r').parse().ok())
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    Ok(MergeInfo {
+        merged: run("merged"),
+        eligible: run("eligible"),
+    })
+}
+
 /// 分支间合并：svn merge [-r F:T] SOURCE TARGET（无 -r 时按 mergeinfo 同步合并）
 #[tauri::command]
-pub fn wc_merge(
-    target: String,
+pub fn wc_merge(    target: String,
     source_url: String,
     rev_from: Option<i64>,
     rev_to: Option<i64>,
@@ -1617,13 +1644,34 @@ fn spawn_svn_task(
 
 /// 后台检出工作副本
 #[tauri::command]
-pub fn task_checkout(url: String, dest: String) -> Result<u64, SvnError> {
-    let retry = Some(RetrySpec::Checkout { url: url.clone(), dest: dest.clone() });
+pub fn task_checkout(
+    url: String,
+    dest: String,
+    depth: Option<String>,
+    rev: Option<String>,
+) -> Result<u64, SvnError> {
+    let retry = Some(RetrySpec::Checkout {
+        url: url.clone(),
+        dest: dest.clone(),
+        depth: depth.clone(),
+        rev: rev.clone(),
+    });
     spawn_svn_task(
         format!("检出 {url}"),
         true,
         retry,
-        move || Ok((vec!["checkout".into(), url, dest], None)),
+        move || {
+            let mut args = vec!["checkout".into(), url, dest];
+            if let Some(d) = depth {
+                args.push("--depth".into());
+                args.push(d);
+            }
+            if let Some(r) = rev {
+                args.push("-r".into());
+                args.push(r);
+            }
+            Ok((args, None))
+        },
     )
 }
 
@@ -1788,7 +1836,7 @@ pub fn task_retry(id: u64) -> Result<u64, SvnError> {
     })?;
     match spec {
         RetrySpec::Import { local, url, message } => task_import(local, url, message),
-        RetrySpec::Checkout { url, dest } => task_checkout(url, dest),
+        RetrySpec::Checkout { url, dest, depth, rev } => task_checkout(url, dest, depth, rev),
         RetrySpec::Update { path } => task_update(path),
         RetrySpec::Export { url, dest, rev } => task_export(url, dest, rev),
     }

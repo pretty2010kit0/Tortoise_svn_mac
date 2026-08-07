@@ -1,5 +1,7 @@
 //! 应用设置（JSON 持久化，$HOME/.config/svn-desktop-tool/settings.json）
-//! 当前字段：external_diff —— 外部 diff 工具可执行路径（默认 /usr/bin/opendiff）
+//! 字段：
+//! - external_diff —— 外部 diff 工具可执行路径（默认 /usr/bin/opendiff）
+//! - trusted_cert_urls —— 永久信任的证书站点列表（协议+host[:port]，如 https://svn.example.internal）
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -12,12 +14,14 @@ const DEFAULT_DIFF: &str = "/usr/bin/opendiff";
 #[serde(default)]
 struct Settings {
     external_diff: String,
+    trusted_cert_urls: Vec<String>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
             external_diff: DEFAULT_DIFF.to_string(),
+            trusted_cert_urls: Vec::new(),
         }
     }
 }
@@ -69,4 +73,58 @@ pub fn set_external_diff(cmd: String) -> Result<(), String> {
 /// 内部读取（wc_diff_external 用）
 pub fn external_diff_cmd() -> String {
     load().external_diff
+}
+
+/// 永久信任的证书站点列表
+#[tauri::command]
+pub fn cert_trust_list() -> Vec<String> {
+    load().trusted_cert_urls
+}
+
+/// 添加永久信任站点（按 协议+host[:port] 前缀匹配）
+#[tauri::command]
+pub fn cert_trust_add(url: String) -> Result<(), String> {
+    let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut s = load();
+    let site = site_of(&url);
+    if site.is_empty() {
+        return Err("无法解析站点（需要完整 URL，如 https://host:port/svn/…）".into());
+    }
+    if !s.trusted_cert_urls.iter().any(|x| x == &site) {
+        s.trusted_cert_urls.push(site);
+        save(&s)?;
+    }
+    Ok(())
+}
+
+/// 移除永久信任站点
+#[tauri::command]
+pub fn cert_trust_remove(url: String) -> Result<(), String> {
+    let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut s = load();
+    let site = site_of(&url);
+    s.trusted_cert_urls.retain(|x| x != &site);
+    save(&s)
+}
+
+/// URL → 站点（协议 + host[:port]）
+fn site_of(url: &str) -> String {
+    let url = url.trim();
+    let rest = match url.find("://") {
+        Some(i) => &url[i + 3..],
+        None => return String::new(),
+    };
+    let scheme = &url[..url.find("://").unwrap_or(0)];
+    let hostport = rest.split(['/', '?', '#']).next().unwrap_or("").to_string();
+    if hostport.is_empty() {
+        String::new()
+    } else {
+        format!("{scheme}://{hostport}")
+    }
+}
+
+/// 判断 URL 是否命中已信任站点（前缀匹配）
+pub fn is_cert_trusted(url: &str) -> bool {
+    let s = load();
+    s.trusted_cert_urls.iter().any(|site| url.starts_with(site))
 }

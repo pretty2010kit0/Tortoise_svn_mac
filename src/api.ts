@@ -14,6 +14,7 @@ import type {
   HistoryEntry,
   ListEntry,
   LogEntry,
+  MergeInfo,
   PropEntry,
   RepoInfo,
   RepoLayout,
@@ -34,6 +35,9 @@ export const api = {
   historyList: () => invoke<HistoryEntry[]>("history_list"),
   historyAdd: (kind: string, value: string) =>
     invoke<void>("history_add", { kind, value }),
+  certTrustList: () => invoke<string[]>("cert_trust_list"),
+  certTrustAdd: (url: string) => invoke<void>("cert_trust_add", { url }),
+  certTrustRemove: (url: string) => invoke<void>("cert_trust_remove", { url }),
 
   remoteOpen: (url: string) => invoke<RepoInfo>("remote_open", { url }),
   remoteList: (url: string, rev?: number | null) =>
@@ -169,12 +173,16 @@ export const api = {
   wcWatchStart: (path: string) => invoke<number>("wc_watch_start", { path }),
   wcWatchStop: (id: number) => invoke<void>("wc_watch_stop", { id }),
 
+  // ── 合并信息（批次 17）──
+  wcMergeinfo: (wcPath: string, sourceUrl: string) =>
+    invoke<MergeInfo>("wc_mergeinfo", { wcPath, sourceUrl }),
+
   // ── TaskManager（批次 8）：后台长任务 ──
   taskList: () => invoke<TaskInfo[]>("task_list"),
   taskCancel: (id: number) => invoke<boolean>("task_cancel", { id }),
   taskRetry: (id: number) => invoke<number>("task_retry", { id }),
-  taskCheckout: (url: string, dest: string) =>
-    invoke<number>("task_checkout", { url, dest }),
+  taskCheckout: (url: string, dest: string, depth?: string | null, rev?: string | null) =>
+    invoke<number>("task_checkout", { url, dest, depth, rev }),
   taskUpdate: (path: string) => invoke<number>("task_update", { path }),
   taskImport: (local: string, url: string, message: string) =>
     invoke<number>("task_import", { local, url, message }),
