@@ -20,6 +20,9 @@ const showSettings = ref(false);
 const svnPath = ref("");
 const settingsBusy = ref(false);
 const settingsMsg = ref("");
+// 外部 diff 工具（批次 15）
+const diffTool = ref("");
+const diffToolMsg = ref("");
 // 认证缓存
 const authCreds = ref<AuthCred[]>([]);
 const authBusy = ref(false);
@@ -98,6 +101,24 @@ function openSettings(): void {
   showSettings.value = true;
   void loadAuth();
   void loadFavs();
+  void loadDiffTool();
+}
+
+async function loadDiffTool(): Promise<void> {
+  try {
+    diffTool.value = await api.getExternalDiff();
+  } catch {
+    diffTool.value = "";
+  }
+}
+
+async function saveDiffTool(): Promise<void> {
+  try {
+    await api.setExternalDiff(diffTool.value);
+    diffToolMsg.value = "已保存";
+  } catch (e) {
+    diffToolMsg.value = normalizeError(e).summary;
+  }
 }
 
 async function loadFavs(): Promise<void> {
@@ -183,8 +204,7 @@ async function clearFavs(): Promise<void> {
           </button>
         </div>
         <p class="hint">已保存的服务器凭据 / 证书信任；清除后下次连接需重新输入。</p>
-        <div v-if="authBusy" class="hint">加载中…</div>
-        <ul v-else-if="authCreds.length > 0" class="authlist">
+        <div v-if="authBusy" class="hint">加载中…</div>        <ul v-else-if="authCreds.length > 0" class="authlist">
           <li v-for="c in authCreds" :key="c.kind + c.realm + c.username">
             <div class="authmain">
               <span class="authtag">{{ c.kind }}</span>
@@ -199,6 +219,23 @@ async function clearFavs(): Promise<void> {
         </ul>
         <p v-else class="hint">无已保存的凭据</p>
         <p class="msg">{{ authMsg }}</p>
+
+        <hr class="sep" />
+        <div class="authrow">
+          <b>外部 diff 工具</b>
+          <button class="small" :disabled="false" @click="saveDiffTool">保存</button>
+        </div>
+        <input
+          v-model="diffTool"
+          class="diff-tool"
+          placeholder="/usr/bin/opendiff"
+          spellcheck="false"
+          @keyup.enter="saveDiffTool"
+        />
+        <p class="hint">
+          用于「外部对比」（diff 页双击/按钮）；留空恢复默认 FileMerge（opendiff）。接收参数：基线文件 工作副本文件。
+        </p>
+        <p class="msg">{{ diffToolMsg }}</p>
 
         <hr class="sep" />
         <div class="authrow">
@@ -436,6 +473,15 @@ async function clearFavs(): Promise<void> {
   color: #888;
   font-family: monospace;
   white-space: nowrap;
+}
+.dialog .diff-tool {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font-size: 13px;
 }
 .content {
   flex: 1;

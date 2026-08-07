@@ -15,6 +15,7 @@ import {
   type ListEntry,
   type LogEntry,
   type RepoInfo,
+  type RepoLayout,
   type TaskInfo,
   type TaskResult,
   type UiError,
@@ -71,6 +72,8 @@ const notice = ref("");
 const exporting = ref(false);
 const writeMsg = ref("");
 const writing = ref(false);
+// 分支/标签布局（批次 15）
+const layout = ref<RepoLayout | null>(null);
 // 认证失败重试弹窗（批次 11 + P0-1 全局化）
 const authPrompt = ref(false);
 const authUrl = ref("");
@@ -204,11 +207,73 @@ async function open(u: string): Promise<void> {
         await open(u);
         return;
       }
+    } else if (ce.category === "certificate") {
+      // 证书不受信任：询问临时接受（本次会话）
+      const ok = window.confirm(
+        `服务器证书不受信任：\n${ce.summary}\n${ce.detail}\n\n是否临时接受该证书并连接？（仅本次，不写入信任缓存）`,
+      );
+      if (ok) {
+        await trustOpen(u);
+        return;
+      }
     }
     err.value = ce;
   } finally {
     loading.value = false;
   }
+}
+
+/** 探测仓库标准布局（分支/标签） */
+async function loadLayout(): Promise<void> {
+  if (!info.value?.rootUrl) return;
+  try {
+    layout.value = await api.remoteRepoLayout(info.value.rootUrl);
+  } catch {
+    layout.value = null;
+  }
+}
+
+/** 临时信任证书重连 */
+async function trustOpen(u: string): Promise<void> {
+  loading.value = true;
+  err.value = null;
+  try {
+    const info2 = await api.remoteOpenTrust(u);
+    info.value = info2;
+    void api.historyAdd("remote", u);
+    url.value = info2.url || u;
+    crumbs.value = [];
+    if (info2.url) crumbs.value.push({ url: info2.url, name: "" });
+    await Promise.all([loadDir(), loadLogs()]);
+    void loadLayout();
+  } catch (e2) {
+    err.value = normalizeError(e2);
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** 从布局跳转（trunk / 分支 / 标签） */
+function gotoLayoutUrl(target: string): void {
+  if (!target) return;
+  url.value = target;
+  void open(target);
+}
+
+/** 创建分支/标签：复制 trunk（或当前）到 根/branches(或tags)/名称 */
+async function createBranchTag(): Promise<void> {
+  if (!layout.value || !info.value?.rootUrl) return;
+  const asBranch = window.confirm("创建分支（确定）/ 标签（取消）？");
+  const kind = asBranch ? "branches" : "tags";
+  const name = await uiPrompt(asBranch ? "新分支名称" : "新标签名称");
+  if (!name?.trim()) return;
+  const root = info.value.rootUrl.replace(/\/+$/, "");
+  const src = layout.value.trunk ?? currentUrl();
+  const dst = `${root}/${kind}/${encodeURIComponent(name.trim())}`;
+  if (!writeMsg.value.trim()) {
+    writeMsg.value = `创建${asBranch ? "分支" : "标签"} ${name.trim()}`;
+  }
+  void doWrite(() => api.remoteCopy(src, dst, writeMsg.value), (r) => r.summary);
 }
 
 /** 认证弹窗提交：带用户名/密码连接（成功后执行待重试操作） */
@@ -727,6 +792,35 @@ const diffTitle = computed(() => {
           <button class="link" @click="goCrumb(i + 1)">{{ c.name }}</button>
         </template>
         <span class="path">{{ currentPath }}</span>
+        <span v-if="layout" class="layoutbar">
+          <template v-if="layout.branchesDir || layout.branches.length">
+            <select
+              class="layoutsel"
+              :value="layout.branchesDir ?? ''"
+              @change="gotoLayoutUrl(($event.target as HTMLSelectElement).value)"
+            >
+              <option :value="layout.branchesDir ?? ''">— 分支 —</option>
+              <option v-for="b in layout.branches" :key="b" :value="`${layout.branchesDir}/${b}`">
+                {{ b }}
+              </option>
+            </select>
+          </template>
+          <template v-if="layout.tagsDir || layout.tags.length">
+            <select
+              class="layoutsel"
+              :value="layout.tagsDir ?? ''"
+              @change="gotoLayoutUrl(($event.target as HTMLSelectElement).value)"
+            >
+              <option :value="layout.tagsDir ?? ''">— 标签 —</option>
+              <option v-for="t in layout.tags" :key="t" :value="`${layout.tagsDir}/${t}`">
+                {{ t }}
+              </option>
+            </select>
+          </template>
+          <button v-if="layout.branchesDir || layout.tagsDir" class="link" @click="createBranchTag">
+            + 创建分支/标签
+          </button>
+        </span>
       </div>
 
       <div class="columns">
@@ -1035,6 +1129,20 @@ const diffTitle = computed(() => {
   font-size: 13px;
   padding-bottom: 6px;
   flex-wrap: wrap;
+}
+.layoutbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+.layoutsel {
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  max-width: 160px;
 }
 .crumb .path {
   color: #57606a;

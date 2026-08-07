@@ -20,6 +20,8 @@ pub fn run() {
             svn::commands::svn_auth_remove,
             svn::commands::remote_open,
             svn::commands::remote_open_auth,
+            svn::commands::remote_open_trust,
+            svn::commands::wc_ignore_add,
             svn::commands::remote_repo_layout,
             svn::commands::remote_list,
             svn::commands::remote_cat,

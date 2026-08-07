@@ -214,6 +214,15 @@ export interface DirStats {
   junkFiles: string[];
 }
 
+/** 仓库标准布局（分支/标签管理） */
+export interface RepoLayout {
+  trunk: string | null;
+  branchesDir: string | null;
+  tagsDir: string | null;
+  branches: string[];
+  tags: string[];
+}
+
 /** 状态条目中文标签 */
 export const STATUS_LABEL: Record<string, string> = {
   none: "正常",

@@ -670,6 +670,13 @@ function fmtDate(d: string): string {
               添加选中
             </button>
             <button
+              v-if="selectedUnversioned().length"
+              :disabled="busy"
+              @click="run(() => api.wcIgnoreAdd(selectedUnversioned()), `将 ${selectedUnversioned().length} 个未版本化路径加入 svn:ignore？`)"
+            >
+              加入忽略
+            </button>
+            <button
               :disabled="selectedCount === 0 || busy"
               @click="run(() => api.wcRevert(checked), '确定还原选中路径的本地修改？')"
             >

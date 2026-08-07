@@ -16,6 +16,7 @@ import type {
   LogEntry,
   PropEntry,
   RepoInfo,
+  RepoLayout,
   StatusEntry,
   StatusU,
   SvnVersion,
@@ -150,6 +151,19 @@ export const api = {
 
   // ── 目录体检（导入前提示）──
   dirStats: (path: string) => invoke<DirStats>("dir_stats", { path }),
+
+  // ── 分支/标签管理（批次 15）──
+  remoteRepoLayout: (rootUrl: string) => invoke<RepoLayout>("remote_repo_layout", { rootUrl }),
+
+  // ── 证书信任（批次 15）──
+  remoteOpenTrust: (url: string) => invoke<RepoInfo>("remote_open_trust", { url }),
+
+  // ── svn:ignore 批量（批次 15）──
+  wcIgnoreAdd: (paths: string[]) => invoke<TaskResult>("wc_ignore_add", { paths }),
+
+  // ── 外部 diff 工具（批次 15）──
+  getExternalDiff: () => invoke<string>("get_external_diff"),
+  setExternalDiff: (cmd: string) => invoke<void>("set_external_diff", { cmd }),
 
   // ── TaskManager（批次 8）：后台长任务 ──
   taskList: () => invoke<TaskInfo[]>("task_list"),
