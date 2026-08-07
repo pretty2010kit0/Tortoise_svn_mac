@@ -1,62 +1,66 @@
 name: Release
 
-# 推送 v* 标签（如 v1.0.0）时自动构建 DMG 并创建 GitHub Release（草稿）
+# 触发：推送 v* 格式 tag（如 v0.1.0）→ 构建 Universal DMG 并发布 GitHub Release
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-release:
+  release:
+    name: 构建 DMG 并发布
     runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup Node 22
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node 22（缓存 npm 依赖）
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: 安装 svn（集成测试依赖）
-        run: brew install subversion
-
-      - name: 前端依赖
+      - name: 安装前端依赖
         run: npm ci
 
-      - name: 前端类型检查
-        run: npm run typecheck
+      - name: 安装 Rust 稳定版 + Universal 双架构 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
-      - name: 后端测试（单元 + 集成）
-        run: cargo test
-        working-directory: src-tauri
+      - name: 缓存 cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-      - name: 前端构建
-        run: npm run build
+      # 用版本号生成变更说明（可改为引用 docs/CHANGELOG.md）
+      - name: 生成发布说明
+        id: body
+        run: |
+          cat > /tmp/release_body.md <<'EOF'
+          ## 安装
+          下载下方 **DMG** 并拖入「应用程序」即可。
 
-      # tauri-action：执行 tauri build（app + dmg），上传产物并创建 Release
-      - uses: tauri-apps/tauri-action@v0
+          > 本应用依赖本机已安装的 Subversion 1.14+（`brew install subversion`），
+          > 二进制默认从 `/opt/homebrew/bin/svn` 或 PATH 自动发现，可在应用「设置」中手动指定。
+
+          ## 变更
+          详见仓库 [功能待办.md](功能待办.md) 与 [执行进度.md](执行进度.md)。
+          EOF
+          echo "body_file=/tmp/release_body.md" >> "$GITHUB_OUTPUT"
+
+      - name: 构建 Universal DMG 并发布 Release
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "SvnDesktop ${{ github.ref_name }}"
-          releaseBody: |
-            ## SvnDesktop ${{ github.ref_name }}
-
-            macOS SVN 图形化管理工具（类 TortoiseSVN）。
-
-            ### 安装说明
-            1. 下载并解压 `SvnDesktop.app`（或安装 `.dmg`）
-            2. 首次打开若提示"无法验证开发者"：右键 App → 打开
-            3. 需要本机已安装 Subversion 1.14+（`brew install subversion`）
+          releaseName: "svn-desktop-tool ${{ github.ref_name }}"
+          releaseBodyFile: ${{ steps.body.outputs.body_file }}
           releaseDraft: true
           prerelease: false
+          args: --target universal-apple-darwin

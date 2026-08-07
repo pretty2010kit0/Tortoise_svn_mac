@@ -63,6 +63,8 @@ npm run build        # 前端产物
 ./manage.sh build    # 发布构建
 ```
 
+> 📦 **CI 与发布流水线**（GitHub Actions）：详见 [docs/CI.md](docs/CI.md) —— 每次 push/PR 自动测试，打 `v*` tag 自动构建 Universal DMG 并发布 Release。
+
 ## 📁 目录结构
 
 ```
