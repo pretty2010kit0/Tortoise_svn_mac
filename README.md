@@ -64,6 +64,8 @@ npm run build        # 前端产物
 ```
 
 > 📦 **CI 与发布流水线**（GitHub Actions）：详见 [docs/CI.md](docs/CI.md) —— 每次 push/PR 自动测试，打 `v*` tag 自动构建 Universal DMG 并发布 Release。
+>
+> 🚀 **发布操作手册**：详见 [docs/RELEASE.md](docs/RELEASE.md) —— 发布新版本的完整操作步骤（token 配置 / 打 tag / 确认草稿 / 常见问题）。
 
 ## 📁 目录结构
 
